@@ -43,7 +43,7 @@ describe('UserService', () => {
     const result = await service.findOne({ email });
 
     expect(result).toEqual(user);
-    expect(mockPrismaService.user.findFirst).toHaveBeenCalledWith({ email });
+    expect(mockPrismaService.user.findFirst).toHaveBeenCalledWith({ where: { email } });
   });
 
   it('should return null when user is not found', async () => {

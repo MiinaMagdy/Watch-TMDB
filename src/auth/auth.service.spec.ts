@@ -12,7 +12,7 @@ const mockJwtService = {
 };
 
 const mockUserService = {
-    findByEmail: jest.fn(),
+    findOne: jest.fn(),
     create: jest.fn(),
 };
 
@@ -49,12 +49,12 @@ describe('AuthService', () => {
         const password = 'password';
         const token = 'jwt_token';
 
-        mockUserService.findByEmail.mockResolvedValue(null);
+        mockUserService.findOne.mockResolvedValue(null);
         mockUserService.create.mockResolvedValue(undefined);
 
         const result = await service.register({ email, password });
 
-        expect(mockUserService.findByEmail).toHaveBeenCalledWith(email);
+        expect(mockUserService.findOne).toHaveBeenCalledWith({ email });
         expect(mockUserService.create).toHaveBeenCalledWith({ email, password });
         expect(result).toBeUndefined();
     });
@@ -64,7 +64,7 @@ describe('AuthService', () => {
         const password = 'password';
         const user = { id: 1, email, passwordHash: 'hash' };
 
-        mockUserService.findByEmail.mockResolvedValue(user);
+        mockUserService.findOne.mockResolvedValue(user);
 
         await expect(service.register({ email, password })).rejects.toThrow('User already exists');
     });
@@ -75,13 +75,13 @@ describe('AuthService', () => {
         const user = { id: 1, email, passwordHash: 'hash' };
         const token = 'jwt_token';
 
-        mockUserService.findByEmail.mockResolvedValue(user);
+        mockUserService.findOne.mockResolvedValue(user);
         mockJwtService.signAsync.mockResolvedValue(token);
         (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
         const result = await service.login({ email, password });
 
-        expect(mockUserService.findByEmail).toHaveBeenCalledWith(email);
+        expect(mockUserService.findOne).toHaveBeenCalledWith({ email });
         expect(mockJwtService.signAsync).toHaveBeenCalledWith({ id: 1, email });
         expect(result).toEqual({ token });
     });
@@ -90,7 +90,7 @@ describe('AuthService', () => {
         const email = 'test@example.com';
         const password = 'password';
 
-        mockUserService.findByEmail.mockResolvedValue(null);
+        mockUserService.findOne.mockResolvedValue(null);
 
         await expect(service.login({ email, password })).rejects.toThrow('Invalid credentials');
     });
@@ -100,7 +100,7 @@ describe('AuthService', () => {
         const password = 'password';
         const user = { id: 1, email, passwordHash: 'hash' };
 
-        mockUserService.findByEmail.mockResolvedValue(user);
+        mockUserService.findOne.mockResolvedValue(user);
         (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
         await expect(service.login({ email, password })).rejects.toThrow('Invalid credentials');
