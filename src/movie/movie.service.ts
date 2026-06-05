@@ -1,0 +1,162 @@
+import { HttpService } from '@nestjs/axios';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from 'src/prisma.service';
+import { TmdbMovie } from './dto/TmdbMovie.dto';
+import { TmdbResource } from './dto/TmdbResource.dto';
+import { MovieQueryDto } from './dto/MovieQuery.dto';
+import { MovieWhereInput } from 'src/generated/prisma/models';
+import { Cron } from '@nestjs/schedule';
+
+@Injectable()
+export class MovieService {
+    constructor(
+        private prismaService: PrismaService,
+        private httpService: HttpService,
+        private configService: ConfigService,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    ) { }
+
+    private mapMovie(movie: TmdbMovie) {
+        return {
+            tmdbId: movie.id,
+            title: movie.title,
+            overview: movie.overview,
+            releaseDate: movie.release_date,
+            posterPath: movie.poster_path,
+            backdropPath: movie.backdrop_path,
+            popularity: movie.popularity,
+            voteAverage: movie.vote_average,
+            voteCount: movie.vote_count,
+            adult: movie.adult,
+            language: movie.original_language,
+            genreIds: movie.genre_ids,
+        }
+    }
+
+    private async fetchFromTMDB(endpoint: string, params?: { [key: string]: string }) {
+        const baseURL = this.configService.get<string>('TMDB_BASE_URL');
+        const token = this.configService.get<string>('TMDB_READ_ACCESS_TOKEN');
+
+        const { data } = await this.httpService.axiosRef.get(
+            `${baseURL}/${endpoint}`,
+            { params, headers: { Authorization: `Bearer ${token}` } }
+        );
+        return data;
+    }
+
+    private async fetchChangedIds(resource: TmdbResource, page: number, start_date: string, end_date: string) {
+        return this.fetchFromTMDB(`${resource}/changes`, { page: page.toString(), start_date, end_date });
+    }
+
+    private async fetchMoviesChangedIds(startDate: string, endDate: string) {
+        const changedIds: number[] = [];
+        const { total_pages } = await this.fetchChangedIds('movie', 1, startDate, endDate);
+
+        for (let page = 1; page <= total_pages; page++) {
+            const { results } = await this.fetchChangedIds('movie', page, startDate, endDate);
+            changedIds.push(...((results as { id: number }[]).map(r => r.id)));
+        }
+        return changedIds;
+    }
+
+    private async fetchMovieDetail(id: number) {
+        return this.fetchFromTMDB(`movie/${id}`);
+    }
+
+    private async upsertMovies(movies: TmdbMovie[]) {
+        for (const m of movies) {
+            const movie = this.mapMovie(m);
+            await this.prismaService.movie.upsert({
+                where: { tmdbId: movie.tmdbId },
+                update: movie,
+                create: movie,
+            });
+        }
+    }
+
+    async seedMovies(pages = 5) {
+        let seeded = 0;
+        for (let page = 1; page <= pages; page++) {
+            const { results } = await this.fetchFromTMDB('movie/popular', { page: page.toString() })
+            await this.upsertMovies(results);
+            seeded += results.length;
+        }
+        await this.cacheManager.clear();
+        return { seeded };
+    }
+
+    async deltaSync() {
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+
+        // 1. Get all changed IDs from TMDB (paginated)
+        const changedIds = await this.fetchMoviesChangedIds(yesterday, today);
+
+        // 2. Cross-reference with our DB — only update movies we have
+        const ourMovies = await this.prismaService.movie.findMany({
+            where: { tmdbId: { in: changedIds } },
+            select: { tmdbId: true },
+        });
+        const ourIds = ourMovies.map(m => m.tmdbId);
+
+        // 3. Fetch full details and upsert each one
+        for (const tmdbId of ourIds) {
+            const detail = await this.fetchMovieDetail(tmdbId);
+            await this.upsertMovies([detail]);
+        }
+
+        await this.cacheManager.clear();
+        return { updated: ourIds.length };
+    }
+
+    async findAll(query: MovieQueryDto) {
+        const { page = 1, limit = 20, search = '', sortBy = 'popularity' } = query;
+        const where: MovieWhereInput = {};
+        if (search) {
+            where.OR = [
+                { title: { contains: search } },
+                { overview: { contains: search } },
+            ];
+        }
+        const orderBy = this.getOrderBy(sortBy);
+        const [movies, total] = await Promise.all([
+            this.prismaService.movie.findMany({
+                where,
+                orderBy,
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prismaService.movie.count({ where }),
+        ]);
+        return { movies, total, page, limit };
+    }
+
+    private getOrderBy(sortBy: MovieQueryDto['sortBy']): { [key: string]: 'asc' | 'desc' } {
+        switch (sortBy) {
+            case 'popularity':
+                return { popularity: 'desc' };
+            case 'voteAverage':
+                return { voteAverage: 'desc' };
+            case 'releaseDate':
+                return { releaseDate: 'desc' };
+            default:
+                return { popularity: 'desc' };
+        }
+    }
+
+    async findOne(id: number) {
+        return this.prismaService.movie.findUnique({ where: { tmdbId: id } });
+    }
+
+    @Cron('0 3 * * *')
+    async scheduleDeltaSync() {
+        try {
+            const result = await this.deltaSync();
+            console.log('Scheduled delta sync completed:', result);
+        } catch (error) {
+            console.error('Scheduled delta sync failed:', error);
+        }
+    }
+}
