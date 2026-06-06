@@ -78,6 +78,7 @@ describe('MovieService', () => {
       { id: 3, name: "Drama" }
     ]
     mockConfigService.get.mockReturnValue("some_key");
+    mockPrismaService.movie.findMany.mockResolvedValue([])
     mockHttpService.axiosRef.get.mockResolvedValueOnce({ data: { genres } })
     mockHttpService.axiosRef.get.mockResolvedValue({
       data: {
@@ -246,6 +247,38 @@ describe('MovieService', () => {
     expect(mockPrismaService.movie.count).toHaveBeenCalledTimes(0);
     expect(mockCacheManager.get).toHaveBeenCalledTimes(1);
     expect(mockCacheManager.set).toHaveBeenCalledTimes(0);
+  })
+
+  it('should find many movies with minimum rating', async () => {
+    const moviesInDB = 100;
+    const limit = 20;
+    const page = 1;
+    const minRating = 7;
+    const movies = Array.from({ length: limit }, (_, i) => ({
+      tmdbId: (page - 1) * limit + i + 1,
+      title: `Movie ${i + 1}`,
+      overview: `Overview ${i + 1}`,
+      releaseDate: `2022-01-01`,
+      posterPath: `/poster-${i + 1}.jpg`,
+      backdropPath: `/backdrop-${i + 1}.jpg`,
+      popularity: 100,
+      voteAverage: i % 10 + 1,
+      voteCount: 1000,
+      adult: false,
+      language: "en",
+    }))
+    mockCacheManager.get.mockResolvedValue(null);
+    mockPrismaService.movie.findMany.mockResolvedValue(movies.filter(m => m.voteAverage >= minRating))
+    mockPrismaService.movie.count.mockResolvedValue(moviesInDB)
+    const { limit: foundLimit, movies: foundMovies, page: foundPage, total } = await service.findAll({ limit, page, minRating });
+    expect(foundMovies.length).toEqual(8);
+    expect(total).toEqual(moviesInDB);
+    expect(foundPage).toEqual(page);
+    expect(foundLimit).toEqual(limit);
+    expect(mockPrismaService.movie.findMany).toHaveBeenCalledTimes(1);
+    expect(mockPrismaService.movie.findMany).toHaveBeenCalledWith({ where: { totalVoteAverage: { gte: minRating } }, skip: (page - 1) * limit, take: limit, orderBy: { popularity: 'desc' } });
+    expect(mockCacheManager.set).toHaveBeenCalledTimes(1);
+    expect(mockCacheManager.set).toHaveBeenCalledWith(`movies:${JSON.stringify({ limit, page, minRating })}`, { movies: foundMovies, total, page, limit });
   })
 
   it('should find one movie and cache miss', async () => {

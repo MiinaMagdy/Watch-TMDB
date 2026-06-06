@@ -70,14 +70,23 @@ export class MovieService {
     }
 
     private async upsertMovies(movies: TmdbMovie[]) {
+        const tmdbIds = movies.map(m => m.id);
+        const existingMovies = await this.prismaService.movie.findMany({
+            where: { tmdbId: { in: tmdbIds } },
+            select: { tmdbId: true, localVoteAverage: true, localVoteCount: true },
+        });
+        const existingMoviesMap = new Map(existingMovies.map(m => [m.tmdbId, m]));
         await Promise.all(
             movies.map(m => {
                 const movie = this.mapMovie(m);
+                const existing = existingMoviesMap.get(movie.tmdbId);
+                const totalVoteCount = (existing?.localVoteCount ?? 0) + movie.voteCount;
+                const totalVoteAverage = totalVoteCount === 0 ? 0 : ((existing?.localVoteAverage ?? 0) * (existing?.localVoteCount ?? 0) + movie.voteAverage * movie.voteCount) / totalVoteCount;
                 const genreConnections = (m.genre_ids ?? []).map(id => ({ tmdbId: id }));
                 return this.prismaService.movie.upsert({
                     where: { tmdbId: movie.tmdbId },
-                    update: { ...movie, genres: { set: genreConnections } },
-                    create: { ...movie, genres: { connect: genreConnections } },
+                    update: { ...movie, totalVoteAverage, totalVoteCount, genres: { set: genreConnections } },
+                    create: { ...movie, totalVoteAverage, totalVoteCount, genres: { connect: genreConnections } }
                 });
             })
         );
@@ -153,7 +162,7 @@ export class MovieService {
         const cached = await this.cacheManager.get(cacheKey);
         if (cached) return cached as { movies: Movie[], total: number, page: number, limit: number };
 
-        const { page = 1, limit = 20, search = '', sortBy = 'popularity' } = query;
+        const { page = 1, limit = 20, search = '', sortBy = 'popularity', genreIds, minRating } = query;
         const where: MovieWhereInput = {};
         if (search) {
             where.OR = [
@@ -161,6 +170,18 @@ export class MovieService {
                 { overview: { contains: search } },
             ];
         }
+
+        if (minRating) {
+            where.totalVoteAverage = { gte: minRating };
+        }
+
+        if (genreIds) {
+            const ids = genreIds.split(',').map(id => parseInt(id.trim()));
+            where.AND = where.AND ?? [];
+            const genreConditions = ids.map(id => ({ genres: { some: { tmdbId: id } } }));
+            (where.AND as any[]).push(...genreConditions);
+        }
+
         const orderBy = this.getOrderBy(sortBy);
         const [movies, total] = await Promise.all([
             this.prismaService.movie.findMany({
