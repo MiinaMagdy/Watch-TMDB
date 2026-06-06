@@ -14,25 +14,55 @@ datasource db {
 }
 
 model User {
-  id           Int    @id @default(autoincrement())
-  email        String @unique
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
   passwordHash String
+  watchlist    Movie[]  @relation("UserWatchlist")
+  ratings      Rating[]
 }
 
 model Movie {
-  id           Int      @id @default(autoincrement())
-  tmdbId       Int      @unique
+  id           Int     @id @default(autoincrement())
+  tmdbId       Int     @unique
   title        String
-  overview     String   @db.Text
+  overview     String  @db.Text
   releaseDate  String? // "YYYY-MM-DD"
   posterPath   String?
   backdropPath String?
   popularity   Float
   voteAverage  Float
   voteCount    Int
-  adult        Boolean  @default(false)
+  adult        Boolean @default(false)
   language     String? // original_language
-  genreIds     Json? // JSON-serialized int[] — upgradeable to relation later
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  // New local rating fields
+  localVoteAverage Float @default(0)
+  localVoteCount   Int   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  genres        Genre[]
+  watchlistedBy User[]   @relation("UserWatchlist")
+  ratings       Rating[]
+}
+
+model Genre {
+  id     Int     @id @default(autoincrement())
+  tmdbId Int     @unique
+  name   String
+  movies Movie[]
+}
+
+model Rating {
+  id        Int      @id @default(autoincrement())
+  value     Int // 1 to 10
+  userId    Int
+  movieId   Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  movie     Movie    @relation(fields: [movieId], references: [id])
+
+  @@unique([userId, movieId])
 }
