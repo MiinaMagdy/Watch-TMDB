@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from '../prisma.service';
 import { TmdbMovie } from './dto/TmdbMovie.dto';
 import { TmdbResource } from './dto/TmdbResource.dto';
 import { MovieQueryDto } from './dto/MovieQuery.dto';
