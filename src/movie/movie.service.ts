@@ -120,6 +120,10 @@ export class MovieService {
     }
 
     async findAll(query: MovieQueryDto) {
+        const cacheKey = `movies:${JSON.stringify(query)}`
+        const cached = await this.cacheManager.get(cacheKey);
+        if (cached) return cached;
+
         const { page = 1, limit = 20, search = '', sortBy = 'popularity' } = query;
         const where: MovieWhereInput = {};
         if (search) {
@@ -138,7 +142,11 @@ export class MovieService {
             }),
             this.prismaService.movie.count({ where }),
         ]);
-        return { movies, total, page, limit };
+        const result = { movies, total, page, limit };
+
+        await this.cacheManager.set(cacheKey, result);
+
+        return result;
     }
 
     private getOrderBy(sortBy: MovieQueryDto['sortBy']): { [key: string]: 'asc' | 'desc' } {
@@ -155,9 +163,15 @@ export class MovieService {
     }
 
     async findOne(id: number) {
-        return this.prismaService.movie.findUnique({ where: { tmdbId: id } });
+        const cacheKey = `movie:${id}`
+        const cached = await this.cacheManager.get(cacheKey);
+        if (cached) return cached;
+        const movie = await this.prismaService.movie.findUnique({ where: { tmdbId: id } });
+        if (movie) await this.cacheManager.set(cacheKey, movie);
+        return movie;
     }
 
+    // runs at 3 AM every day
     @Cron('0 3 * * *')
     async scheduleDeltaSync() {
         try {

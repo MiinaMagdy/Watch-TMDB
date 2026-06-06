@@ -26,6 +26,8 @@ const mockConfigService = {
 
 const mockCacheManager = {
   clear: jest.fn(),
+  get: jest.fn(),
+  set: jest.fn(),
 }
 
 describe('MovieService', () => {
@@ -67,7 +69,7 @@ describe('MovieService', () => {
 
   it('should seed the database from TMDB', async () => {
     const pages = 4;
-    mockConfigService.get.mockResolvedValue("some_key");
+    mockConfigService.get.mockReturnValue("some_key");
     mockHttpService.axiosRef.get.mockResolvedValue({
       data: {
         results: Array.from({ length: 20 }, (_, i) => ({
@@ -98,7 +100,7 @@ describe('MovieService', () => {
     const total_pages = 3;
     const moviesPerPage = 20;
     const moviesInDB = 30;
-    mockConfigService.get.mockResolvedValue("some_key");
+    mockConfigService.get.mockReturnValue("some_key");
 
     mockHttpService.axiosRef.get.mockImplementation((endpoint: string, options: { params?: { page: string } }) => {
       const page = parseInt(options?.params?.page || "1");
@@ -176,7 +178,7 @@ describe('MovieService', () => {
     expect(mockCacheManager.clear).toHaveBeenCalledTimes(1);
   })
 
-  it('should find many movies', async () => {
+  it('should find many movies and cache miss', async () => {
     const page = 2;
     const moviesInDB = 100;
     const limit = 40;
@@ -194,6 +196,7 @@ describe('MovieService', () => {
       language: "en",
       genreIds: [1, 2, 3]
     }))
+    mockCacheManager.get.mockResolvedValue(null);
     mockPrismaService.movie.findMany.mockResolvedValue(movies)
     mockPrismaService.movie.count.mockResolvedValue(moviesInDB)
     const { movies: foundMovies, total, page: foundPage, limit: foundLimit } = await service.findAll({ limit, page });
@@ -204,5 +207,124 @@ describe('MovieService', () => {
     expect(mockPrismaService.movie.findMany).toHaveBeenCalledTimes(1);
     expect(mockPrismaService.movie.count).toHaveBeenCalledTimes(1);
     expect(mockPrismaService.movie.findMany).toHaveBeenCalledWith({ where: {}, skip: (page - 1) * limit, take: limit, orderBy: { popularity: 'desc' } });
+    expect(mockCacheManager.set).toHaveBeenCalledTimes(1);
+    expect(mockCacheManager.set).toHaveBeenCalledWith(`movies:${JSON.stringify({ limit, page })}`, { movies, total, page, limit });
+  })
+
+  it('should find many movies and cache hit', async () => {
+    const page = 2;
+    const moviesInDB = 100;
+    const limit = 40;
+    const movies = Array.from({ length: limit }, (_, i) => ({
+      tmdbId: (page - 1) * limit + i + 1,
+      title: `Movie ${i + 1}`,
+      overview: `Overview ${i + 1}`,
+      releaseDate: `2022-01-01`,
+      posterPath: `/poster-${i + 1}.jpg`,
+      backdropPath: `/backdrop-${i + 1}.jpg`,
+      popularity: 100,
+      voteAverage: 8,
+      voteCount: 1000,
+      adult: false,
+      language: "en",
+      genreIds: [1, 2, 3]
+    }))
+    mockCacheManager.get.mockResolvedValue({ movies, total: moviesInDB, page, limit });
+    const { movies: foundMovies, total, page: foundPage, limit: foundLimit } = await service.findAll({ limit, page });
+    expect(foundMovies).toEqual(movies);
+    expect(total).toEqual(moviesInDB);
+    expect(foundPage).toEqual(page);
+    expect(foundLimit).toEqual(limit);
+    expect(mockPrismaService.movie.findMany).toHaveBeenCalledTimes(0);
+    expect(mockPrismaService.movie.count).toHaveBeenCalledTimes(0);
+    expect(mockCacheManager.get).toHaveBeenCalledTimes(1);
+    expect(mockCacheManager.set).toHaveBeenCalledTimes(0);
+  })
+
+  it('should find one movie and cache miss', async () => {
+    const id = 1;
+    mockCacheManager.get.mockResolvedValue(null);
+    mockPrismaService.movie.findUnique.mockResolvedValue({
+      tmdbId: id,
+      title: `Movie ${id}`,
+      overview: `Overview ${id}`,
+      releaseDate: `2022-01-01`,
+      posterPath: `/poster-${id}.jpg`,
+      backdropPath: `/backdrop-${id}.jpg`,
+      popularity: 100,
+      voteAverage: 8,
+      voteCount: 1000,
+      adult: false,
+      language: "en",
+      genreIds: [1, 2, 3]
+    })
+    const movie = await service.findOne(id);
+    expect(movie).toEqual({
+      tmdbId: id,
+      title: `Movie ${id}`,
+      overview: `Overview ${id}`,
+      releaseDate: `2022-01-01`,
+      posterPath: `/poster-${id}.jpg`,
+      backdropPath: `/backdrop-${id}.jpg`,
+      popularity: 100,
+      voteAverage: 8,
+      voteCount: 1000,
+      adult: false,
+      language: "en",
+      genreIds: [1, 2, 3]
+    })
+    expect(mockPrismaService.movie.findUnique).toHaveBeenCalledTimes(1);
+    expect(mockPrismaService.movie.findUnique).toHaveBeenCalledWith({ where: { tmdbId: id } });
+    expect(mockCacheManager.set).toHaveBeenCalledTimes(1);
+    expect(mockCacheManager.set).toHaveBeenCalledWith(`movie:${id}`, {
+      tmdbId: id,
+      title: `Movie ${id}`,
+      overview: `Overview ${id}`,
+      releaseDate: `2022-01-01`,
+      posterPath: `/poster-${id}.jpg`,
+      backdropPath: `/backdrop-${id}.jpg`,
+      popularity: 100,
+      voteAverage: 8,
+      voteCount: 1000,
+      adult: false,
+      language: "en",
+      genreIds: [1, 2, 3]
+    });
+  })
+
+  it('should find one movie and cache hit', async () => {
+    const id = 1;
+    mockCacheManager.get.mockResolvedValue({
+      tmdbId: id,
+      title: `Movie ${id}`,
+      overview: `Overview ${id}`,
+      releaseDate: `2022-01-01`,
+      posterPath: `/poster-${id}.jpg`,
+      backdropPath: `/backdrop-${id}.jpg`,
+      popularity: 100,
+      voteAverage: 8,
+      voteCount: 1000,
+      adult: false,
+      language: "en",
+      genreIds: [1, 2, 3]
+    })
+    const movie = await service.findOne(id);
+    expect(movie).toEqual({
+      tmdbId: id,
+      title: `Movie ${id}`,
+      overview: `Overview ${id}`,
+      releaseDate: `2022-01-01`,
+      posterPath: `/poster-${id}.jpg`,
+      backdropPath: `/backdrop-${id}.jpg`,
+      popularity: 100,
+      voteAverage: 8,
+      voteCount: 1000,
+      adult: false,
+      language: "en",
+      genreIds: [1, 2, 3]
+    })
+    expect(mockPrismaService.movie.findUnique).toHaveBeenCalledTimes(0);
+    expect(mockCacheManager.get).toHaveBeenCalledTimes(1);
+    expect(mockCacheManager.set).toHaveBeenCalledTimes(0);
   })
 });
