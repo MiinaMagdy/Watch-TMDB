@@ -18,3 +18,21 @@ model User {
   email        String @unique
   passwordHash String
 }
+
+model Movie {
+  id           Int      @id @default(autoincrement())
+  tmdbId       Int      @unique
+  title        String
+  overview     String   @db.Text
+  releaseDate  String? // "YYYY-MM-DD"
+  posterPath   String?
+  backdropPath String?
+  popularity   Float
+  voteAverage  Float
+  voteCount    Int
+  adult        Boolean  @default(false)
+  language     String? // original_language
+  genreIds     Json? // JSON-serialized int[] — upgradeable to relation later
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
