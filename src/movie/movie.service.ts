@@ -102,10 +102,18 @@ export class MovieService {
         const ourIds = ourMovies.map(m => m.tmdbId);
 
         // 3. Fetch full details and upsert each one
-        for (const tmdbId of ourIds) {
-            const detail = await this.fetchMovieDetail(tmdbId);
-            await this.upsertMovies([detail]);
+        const BATCH_SIZE = 5;
+        const details: TmdbMovie[] = [];
+        for (let i = 0; i < ourIds.length; i += BATCH_SIZE) {
+            const batch = ourIds.slice(i, i + BATCH_SIZE);
+            const batchDetails = await Promise.all(
+                batch.map(id => this.fetchMovieDetail(id))
+            );
+            details.push(...batchDetails);
         }
+
+        // Upsert all at once
+        await this.upsertMovies(details);
 
         await this.cacheManager.clear();
         return { updated: ourIds.length };
