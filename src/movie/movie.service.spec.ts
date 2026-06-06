@@ -11,6 +11,9 @@ const mockPrismaService = {
     findMany: jest.fn(),
     count: jest.fn(),
     findUnique: jest.fn(),
+  },
+  genre: {
+    upsert: jest.fn(),
   }
 };
 
@@ -69,7 +72,13 @@ describe('MovieService', () => {
 
   it('should seed the database from TMDB', async () => {
     const pages = 4;
+    const genres = [
+      { id: 1, name: "Action" },
+      { id: 2, name: "Comedy" },
+      { id: 3, name: "Drama" }
+    ]
     mockConfigService.get.mockReturnValue("some_key");
+    mockHttpService.axiosRef.get.mockResolvedValueOnce({ data: { genres } })
     mockHttpService.axiosRef.get.mockResolvedValue({
       data: {
         results: Array.from({ length: 20 }, (_, i) => ({
@@ -91,7 +100,8 @@ describe('MovieService', () => {
 
     const { seeded } = await service.seedMovies(pages);
     expect(seeded).toEqual(pages * 20);
-    expect(mockHttpService.axiosRef.get).toHaveBeenCalledTimes(pages);
+    expect(mockHttpService.axiosRef.get).toHaveBeenCalledTimes(1 + pages);
+    expect(mockPrismaService.genre.upsert).toHaveBeenCalledTimes(genres.length);
     expect(mockPrismaService.movie.upsert).toHaveBeenCalledTimes(pages * 20);
     expect(mockCacheManager.clear).toHaveBeenCalledTimes(1);
   })
@@ -158,8 +168,7 @@ describe('MovieService', () => {
       voteAverage: 8,
       voteCount: 1000,
       adult: false,
-      language: "en",
-      genreIds: [1, 2, 3]
+      language: "en"
     })))
 
     const { updated } = await service.deltaSync();
@@ -194,7 +203,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     }))
     mockCacheManager.get.mockResolvedValue(null);
     mockPrismaService.movie.findMany.mockResolvedValue(movies)
@@ -227,7 +235,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     }))
     mockCacheManager.get.mockResolvedValue({ movies, total: moviesInDB, page, limit });
     const { movies: foundMovies, total, page: foundPage, limit: foundLimit } = await service.findAll({ limit, page });
@@ -256,7 +263,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     })
     const movie = await service.findOne(id);
     expect(movie).toEqual({
@@ -271,7 +277,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     })
     expect(mockPrismaService.movie.findUnique).toHaveBeenCalledTimes(1);
     expect(mockPrismaService.movie.findUnique).toHaveBeenCalledWith({ where: { tmdbId: id } });
@@ -288,7 +293,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     });
   })
 
@@ -306,7 +310,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     })
     const movie = await service.findOne(id);
     expect(movie).toEqual({
@@ -321,7 +324,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     })
     expect(mockPrismaService.movie.findUnique).toHaveBeenCalledTimes(0);
     expect(mockCacheManager.get).toHaveBeenCalledTimes(1);

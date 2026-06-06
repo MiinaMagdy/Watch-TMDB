@@ -8,6 +8,8 @@ import { TmdbResource } from './dto/TmdbResource.dto';
 import { MovieQueryDto } from './dto/MovieQuery.dto';
 import { MovieWhereInput } from 'src/generated/prisma/models';
 import { Cron } from '@nestjs/schedule';
+import { Genre } from './dto/Genre.dto';
+import { Movie } from '../generated/prisma/client';
 
 @Injectable()
 export class MovieService {
@@ -34,7 +36,6 @@ export class MovieService {
             voteCount: movie.vote_count,
             adult: movie.adult,
             language: movie.original_language,
-            genreIds: movie.genre_ids,
         }
     }
 
@@ -69,17 +70,42 @@ export class MovieService {
     }
 
     private async upsertMovies(movies: TmdbMovie[]) {
-        for (const m of movies) {
-            const movie = this.mapMovie(m);
-            await this.prismaService.movie.upsert({
-                where: { tmdbId: movie.tmdbId },
-                update: movie,
-                create: movie,
+        await Promise.all(
+            movies.map(m => {
+                const movie = this.mapMovie(m);
+                const genreConnections = (m.genre_ids ?? []).map(id => ({ tmdbId: id }));
+                return this.prismaService.movie.upsert({
+                    where: { tmdbId: movie.tmdbId },
+                    update: { ...movie, genres: { set: genreConnections } },
+                    create: { ...movie, genres: { connect: genreConnections } },
+                });
+            })
+        );
+    }
+
+    private async upsertGenres(genres: Genre[]) {
+        for (const genre of genres) {
+            await this.prismaService.genre.upsert({
+                where: { tmdbId: genre.id },
+                update: {
+                    name: genre.name,
+                },
+                create: {
+                    tmdbId: genre.id,
+                    name: genre.name
+                },
             });
         }
     }
 
+    private async syncGenres() {
+        const { genres }: { genres: Genre[] } = await this.fetchFromTMDB('genre/movie/list');
+        await this.upsertGenres(genres);
+        this.logger.log(`Synced ${genres.length} genres`);
+    }
+
     async seedMovies(pages = 5) {
+        await this.syncGenres();
         let seeded = 0;
         for (let page = 1; page <= pages; page++) {
             const { results } = await this.fetchFromTMDB('movie/popular', { page: page.toString() })
@@ -125,7 +151,7 @@ export class MovieService {
     async findAll(query: MovieQueryDto) {
         const cacheKey = `movies:${JSON.stringify(query)}`
         const cached = await this.cacheManager.get(cacheKey);
-        if (cached) return cached;
+        if (cached) return cached as { movies: Movie[], total: number, page: number, limit: number };
 
         const { page = 1, limit = 20, search = '', sortBy = 'popularity' } = query;
         const where: MovieWhereInput = {};
