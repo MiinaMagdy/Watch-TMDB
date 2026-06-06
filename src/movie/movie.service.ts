@@ -1,6 +1,6 @@
 import { HttpService } from '@nestjs/axios';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
 import { TmdbMovie } from './dto/TmdbMovie.dto';
@@ -11,6 +11,9 @@ import { Cron } from '@nestjs/schedule';
 
 @Injectable()
 export class MovieService {
+
+    private readonly logger = new Logger(MovieService.name);
+
     constructor(
         private prismaService: PrismaService,
         private httpService: HttpService,
@@ -167,7 +170,9 @@ export class MovieService {
         const cached = await this.cacheManager.get(cacheKey);
         if (cached) return cached;
         const movie = await this.prismaService.movie.findUnique({ where: { tmdbId: id } });
-        if (movie) await this.cacheManager.set(cacheKey, movie);
+        if (!movie)
+            throw new NotFoundException(`Movie with TMDB ID ${id} not found`);
+        await this.cacheManager.set(cacheKey, movie);
         return movie;
     }
 
@@ -176,9 +181,9 @@ export class MovieService {
     async scheduleDeltaSync() {
         try {
             const result = await this.deltaSync();
-            console.log('Scheduled delta sync completed:', result);
+            this.logger.log(`Scheduled delta sync completed: ${JSON.stringify(result)}`);
         } catch (error) {
-            console.error('Scheduled delta sync failed:', error);
+            this.logger.error('Scheduled delta sync failed', error instanceof Error ? error.stack : String(error));
         }
     }
 }
