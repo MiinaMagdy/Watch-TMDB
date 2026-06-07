@@ -261,13 +261,13 @@ export class MovieService {
 
         return await this.prismaService.$transaction(async (prisma) => {
             const existingRating = await prisma.rating.findUnique({
-                where: { userId_movieId: { userId, movieId } }
+                where: { userId_movieId: { userId, movieId: movie.id } }
             });
 
             await prisma.rating.upsert({
-                where: { userId_movieId: { userId, movieId } },
+                where: { userId_movieId: { userId, movieId: movie.id } },
                 update: { value: rating },
-                create: { userId, movieId, value: rating }
+                create: { userId, movieId: movie.id, value: rating }
             });
 
             await prisma.movie.update({
@@ -284,14 +284,14 @@ export class MovieService {
 
         return await this.prismaService.$transaction(async (prisma) => {
             const existingRating = await prisma.rating.findUnique({
-                where: { userId_movieId: { userId, movieId } }
+                where: { userId_movieId: { userId, movieId: movie.id } }
             });
 
             if (!existingRating)
                 throw new NotFoundException(`Rating not found`);
 
             await prisma.rating.delete({
-                where: { userId_movieId: { userId, movieId } }
+                where: { userId_movieId: { userId, movieId: movie.id } }
             });
 
             await prisma.movie.update({

@@ -29,5 +29,6 @@ export class MovieQueryDto {
     @Min(0)
     @IsInt()
     @Type(() => Number)
+    @IsOptional()
     minRating?: number
 }

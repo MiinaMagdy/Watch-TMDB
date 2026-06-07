@@ -373,6 +373,7 @@ describe('MovieService', () => {
 
   it('should add new non-existing rating and udpate average', async () => {
     const movie = {
+      id: 1,
       tmdbId: 1,
       voteAverage: 10,
       voteCount: 1,
@@ -392,9 +393,9 @@ describe('MovieService', () => {
     expect(mockCacheManager.set).toHaveBeenCalledWith(`movie:${movie.tmdbId}`, movie)
     expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrismaService.rating.upsert).toHaveBeenCalledWith({
-      where: { userId_movieId: { userId, movieId: movie.tmdbId } },
+      where: { userId_movieId: { userId, movieId: movie.id } },
       update: { value: rating },
-      create: { userId, movieId: movie.tmdbId, value: rating }
+      create: { userId, movieId: movie.id, value: rating }
     })
     expect(mockPrismaService.movie.update).toHaveBeenCalledWith({
       where: { tmdbId: movie.tmdbId },
@@ -410,6 +411,7 @@ describe('MovieService', () => {
 
   it('should update existing rating and recalculate average', async () => {
     const movie = {
+      id: 1,
       tmdbId: 1,
       voteAverage: 10,
       voteCount: 1,
@@ -429,9 +431,9 @@ describe('MovieService', () => {
     expect(mockCacheManager.set).toHaveBeenCalledWith(`movie:${movie.tmdbId}`, movie)
     expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrismaService.rating.upsert).toHaveBeenCalledWith({
-      where: { userId_movieId: { userId, movieId: movie.tmdbId } },
+      where: { userId_movieId: { userId, movieId: movie.id } },
       update: { value: rating },
-      create: { userId, movieId: movie.tmdbId, value: rating }
+      create: { userId, movieId: movie.id, value: rating }
     })
     expect(mockPrismaService.movie.update).toHaveBeenCalledWith({
       where: { tmdbId: movie.tmdbId },
@@ -447,6 +449,7 @@ describe('MovieService', () => {
 
   it('should not remove rating and throw not found erorr', async () => {
     const movie = {
+      id: 1,
       tmdbId: 1,
       voteAverage: 10,
       voteCount: 1,
@@ -466,6 +469,7 @@ describe('MovieService', () => {
 
   it('should remove exisiting rating', async () => {
     const movie = {
+      id: 1,
       tmdbId: 1,
       voteAverage: 10,
       voteCount: 1,
@@ -484,7 +488,7 @@ describe('MovieService', () => {
     expect(mockCacheManager.set).toHaveBeenCalledWith(`movie:${movie.tmdbId}`, movie)
     expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrismaService.rating.delete).toHaveBeenCalledWith({
-      where: { userId_movieId: { userId, movieId: movie.tmdbId } }
+      where: { userId_movieId: { userId, movieId: movie.id } }
     })
     expect(mockPrismaService.movie.update).toHaveBeenCalledWith({
       where: { tmdbId: movie.tmdbId },
