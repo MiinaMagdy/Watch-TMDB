@@ -264,18 +264,6 @@ export class MovieService {
                 where: { userId_movieId: { userId, movieId } }
             });
 
-            let diffSum = 0;
-            let diffCount = 0;
-
-            if (existingRating) {
-                diffSum = rating - existingRating.value;
-                diffCount = 0;
-            }
-            else {
-                diffSum = rating;
-                diffCount = 1;
-            }
-
             await prisma.rating.upsert({
                 where: { userId_movieId: { userId, movieId } },
                 update: { value: rating },
