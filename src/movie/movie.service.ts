@@ -303,6 +303,17 @@ export class MovieService {
         })
     }
 
+    async findAllGenres() {
+        const cacheKey = 'genres';
+        const cached = await this.cacheManager.get(cacheKey);
+        if (cached) return cached;
+
+        const genres = await this.prismaService.genre.findMany();
+        await this.cacheManager.set(cacheKey, genres);
+
+        return genres;
+    }
+
     // runs at 3 AM every day
     @Cron('0 3 * * *')
     async scheduleDeltaSync() {
