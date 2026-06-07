@@ -1,3 +1,0 @@
--- AlterTable
-ALTER TABLE `movie` ADD COLUMN `totalVoteAverage` DOUBLE NOT NULL DEFAULT 0,
-    ADD COLUMN `totalVoteCount` INTEGER NOT NULL DEFAULT 0;

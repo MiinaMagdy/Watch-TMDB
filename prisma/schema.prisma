@@ -19,6 +19,8 @@ model User {
   passwordHash String
   watchlist    Movie[]  @relation("UserWatchlist")
   ratings      Rating[]
+
+  @@map("users")
 }
 
 model Movie {
@@ -52,6 +54,8 @@ model Movie {
 
   @@index([totalVoteAverage])
   @@index([popularity])
+
+  @@map("movies")
 }
 
 model Genre {
@@ -59,6 +63,8 @@ model Genre {
   tmdbId Int     @unique
   name   String
   movies Movie[]
+
+  @@map("genres")
 }
 
 model Rating {
@@ -72,4 +78,6 @@ model Rating {
   movie     Movie    @relation(fields: [movieId], references: [id])
 
   @@unique([userId, movieId])
+
+  @@map("ratings")
 }
