@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from "@nestjs/common";
 import { isAxiosError } from "axios";
 import { Request, Response } from "express";
+import { Prisma } from "../../generated/prisma/client";
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -45,6 +46,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
             }
             const message = messages[status] ?? 'TMDB service error';
             return { status, message };
+        }
+
+        if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+            switch (exception.code) {
+                case 'P2002':
+                    return { status: HttpStatus.CONFLICT, message: 'Resource already exists' };
+                case 'P2003':
+                    return { status: HttpStatus.BAD_REQUEST, message: 'Invalid reference provided' };
+                case 'P2025':
+                    return { status: HttpStatus.NOT_FOUND, message: 'Resource not found' };
+                default:
+                    return { status: HttpStatus.BAD_REQUEST, message: 'Database request error' };
+            }
         }
 
         return { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'An unexpected error occurred' }
