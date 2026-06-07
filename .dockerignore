@@ -1,0 +1,12 @@
+.git
+.gitignore
+node_modules/
+dist/
+test/
+coverage/
+npm-debug.log
+.env
+.env.dev
+.env.prod
+.env.test
+.example.env

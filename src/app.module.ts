@@ -8,7 +8,7 @@ import { MovieModule } from './movie/movie.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), ScheduleModule.forRoot(), AuthModule, UserModule, MovieModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: `.env.${process.env.NODE_ENV}` }), ScheduleModule.forRoot(), AuthModule, UserModule, MovieModule],
   controllers: [AppController],
   providers: [AppService],
 })
