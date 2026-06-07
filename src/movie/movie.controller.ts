@@ -1,6 +1,10 @@
-import { Controller, Get, Param, ParseIntPipe, Post, Query, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { MovieQueryDto } from './dto/MovieQuery.dto';
 import { MovieService } from './movie.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/user.decorator';
+import { UserTokenPayload } from '../auth/dto/UserTokenPayload.dto';
+import { RateMovieDto } from './dto/RateMovie.dto';
 
 @Controller('movies')
 export class MovieController {
@@ -25,4 +29,10 @@ export class MovieController {
         return this.movieService.deltaSync();
     }
 
+    @UseGuards(JwtAuthGuard)
+    @Put(':id/rate')
+    @HttpCode(HttpStatus.CREATED)
+    async addRateToMovie(@Param('id', ParseIntPipe) movieId: number, @CurrentUser() user: UserTokenPayload, @Body() dto: RateMovieDto) {
+        return this.movieService.rateMovie(movieId, user.id, dto.rating);
+    }
 }

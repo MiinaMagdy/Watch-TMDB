@@ -212,15 +212,62 @@ export class MovieService {
         }
     }
 
-    async findOne(id: number) {
+    async findOne(id: number): Promise<Movie> {
         const cacheKey = `movie:${id}`
         const cached = await this.cacheManager.get(cacheKey);
-        if (cached) return cached;
+        if (cached) return cached as Movie;
         const movie = await this.prismaService.movie.findUnique({ where: { tmdbId: id } });
         if (!movie)
             throw new NotFoundException(`Movie with TMDB ID ${id} not found`);
         await this.cacheManager.set(cacheKey, movie);
         return movie;
+    }
+
+    async rateMovie(movieId: number, userId: number, rating: number) {
+        const movie = await this.findOne(movieId);
+
+        return await this.prismaService.$transaction(async (prisma) => {
+            const existingRating = await prisma.rating.findUnique({
+                where: { userId_movieId: { userId, movieId } }
+            });
+
+            let diffSum = 0;
+            let diffCount = 0;
+
+            if (existingRating) {
+                diffSum = rating - existingRating.value;
+                diffCount = 0;
+            }
+            else {
+                diffSum = rating;
+                diffCount = 1;
+            }
+
+            let newLocalVoteCount = movie.localVoteCount + diffCount;
+            let newLocalVoteSum = movie.localVoteAverage * movie.localVoteCount + diffSum;
+            let newLocalVoteAverage = newLocalVoteCount === 0 ? 0 : newLocalVoteSum / newLocalVoteCount;
+            let tmdbVoteSum = movie.voteAverage * movie.voteCount;
+            let newTotalVoteCount = newLocalVoteCount + movie.voteCount;
+            let newTotalVoteAverage = newTotalVoteCount === 0 ? 0 : (tmdbVoteSum + newLocalVoteSum) / newTotalVoteCount;
+
+            await prisma.rating.upsert({
+                where: { userId_movieId: { userId, movieId } },
+                update: { value: rating },
+                create: { userId, movieId, value: rating }
+            });
+
+            await prisma.movie.update({
+                where: { tmdbId: movieId },
+                data: {
+                    localVoteAverage: newLocalVoteAverage,
+                    localVoteCount: newLocalVoteCount,
+                    totalVoteAverage: newTotalVoteAverage,
+                    totalVoteCount: newTotalVoteCount
+                }
+            });
+
+            await this.cacheManager.del(`movie:${movieId}`);
+        })
     }
 
     // runs at 3 AM every day
