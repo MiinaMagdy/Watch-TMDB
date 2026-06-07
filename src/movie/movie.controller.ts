@@ -14,6 +14,11 @@ export class MovieController {
         return this.movieService.findAll(query);
     }
 
+    @Get('genres')
+    async findAllGenres() {
+        return this.movieService.findAllGenres();
+    }
+
     @Get(':id')
     async findOne(@Param('id', ParseIntPipe) id: number) {
         return this.movieService.findOne(id);
@@ -42,4 +47,6 @@ export class MovieController {
     async removeRateFromMovie(@Param('id', ParseIntPipe) movieId: number, @CurrentUser() user: UserTokenPayload) {
         return this.movieService.removeRate(movieId, user.id);
     }
+
+
 }
