@@ -223,6 +223,39 @@ export class MovieService {
         return movie;
     }
 
+    private calculateRating({ movie, rating, existingRating }: { movie: Movie, rating?: number, existingRating?: number }) {
+        if (!rating && !existingRating) {
+            throw new Error("Either rating or existingRating must be provided");
+
+        }
+
+        let diffSum = 0;
+        let diffCount = 0;
+
+        if (existingRating) {
+            diffSum = (rating ?? 0) - existingRating;
+            diffCount = !rating ? -1 : 0;
+        }
+        else {
+            diffSum = rating ?? 0;
+            diffCount = !rating ? 0 : 1;
+        }
+
+        let newLocalVoteCount = movie.localVoteCount + diffCount;
+        let newLocalVoteSum = movie.localVoteAverage * movie.localVoteCount + diffSum;
+        let newLocalVoteAverage = newLocalVoteCount === 0 ? 0 : newLocalVoteSum / newLocalVoteCount;
+        let tmdbVoteSum = movie.voteAverage * movie.voteCount;
+        let newTotalVoteCount = newLocalVoteCount + movie.voteCount;
+        let newTotalVoteAverage = newTotalVoteCount === 0 ? 0 : (tmdbVoteSum + newLocalVoteSum) / newTotalVoteCount;
+
+        return {
+            localVoteCount: newLocalVoteCount,
+            localVoteAverage: newLocalVoteAverage,
+            totalVoteCount: newTotalVoteCount,
+            totalVoteAverage: newTotalVoteAverage
+        };
+    }
+
     async rateMovie(movieId: number, userId: number, rating: number) {
         const movie = await this.findOne(movieId);
 
@@ -243,13 +276,6 @@ export class MovieService {
                 diffCount = 1;
             }
 
-            let newLocalVoteCount = movie.localVoteCount + diffCount;
-            let newLocalVoteSum = movie.localVoteAverage * movie.localVoteCount + diffSum;
-            let newLocalVoteAverage = newLocalVoteCount === 0 ? 0 : newLocalVoteSum / newLocalVoteCount;
-            let tmdbVoteSum = movie.voteAverage * movie.voteCount;
-            let newTotalVoteCount = newLocalVoteCount + movie.voteCount;
-            let newTotalVoteAverage = newTotalVoteCount === 0 ? 0 : (tmdbVoteSum + newLocalVoteSum) / newTotalVoteCount;
-
             await prisma.rating.upsert({
                 where: { userId_movieId: { userId, movieId } },
                 update: { value: rating },
@@ -258,12 +284,31 @@ export class MovieService {
 
             await prisma.movie.update({
                 where: { tmdbId: movieId },
-                data: {
-                    localVoteAverage: newLocalVoteAverage,
-                    localVoteCount: newLocalVoteCount,
-                    totalVoteAverage: newTotalVoteAverage,
-                    totalVoteCount: newTotalVoteCount
-                }
+                data: this.calculateRating({ movie, rating, existingRating: existingRating?.value })
+            });
+
+            await this.cacheManager.del(`movie:${movieId}`);
+        })
+    }
+
+    async removeRate(movieId: number, userId: number) {
+        const movie = await this.findOne(movieId);
+
+        return await this.prismaService.$transaction(async (prisma) => {
+            const existingRating = await prisma.rating.findUnique({
+                where: { userId_movieId: { userId, movieId } }
+            });
+
+            if (!existingRating)
+                throw new NotFoundException(`Rating not found`);
+
+            await prisma.rating.delete({
+                where: { userId_movieId: { userId, movieId } }
+            });
+
+            await prisma.movie.update({
+                where: { tmdbId: movieId },
+                data: this.calculateRating({ movie, existingRating: existingRating.value })
             });
 
             await this.cacheManager.del(`movie:${movieId}`);

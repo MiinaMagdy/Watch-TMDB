@@ -444,4 +444,57 @@ describe('MovieService', () => {
     })
     expect(mockCacheManager.del).toHaveBeenCalledWith(`movie:${movie.tmdbId}`);
   })
+
+  it('should not remove rating and throw not found erorr', async () => {
+    const movie = {
+      tmdbId: 1,
+      voteAverage: 10,
+      voteCount: 1,
+      localVoteAverage: 2,
+      localVoteCount: 1,
+      totalVoteAverage: 6,
+      totalVoteCount: 2,
+    };
+    const userId = 1;
+    mockCacheManager.get.mockResolvedValue(null);
+    mockPrismaService.movie.findUnique.mockResolvedValue(movie);
+    mockPrismaService.rating.findUnique.mockResolvedValue(null);
+    await expect(service.removeRate(movie.tmdbId, userId)).rejects.toThrow('Rating not found');
+    expect(mockPrismaService.rating.delete).toHaveBeenCalledTimes(0);
+    expect(mockCacheManager.del).toHaveBeenCalledTimes(0);
+  })
+
+  it('should remove exisiting rating', async () => {
+    const movie = {
+      tmdbId: 1,
+      voteAverage: 10,
+      voteCount: 1,
+      localVoteAverage: 2,
+      localVoteCount: 1,
+      totalVoteAverage: 6,
+      totalVoteCount: 2,
+    };
+    const userId = 1;
+    mockCacheManager.get.mockResolvedValue(null);
+    mockPrismaService.movie.findUnique.mockResolvedValue(movie);
+    mockPrismaService.rating.findUnique.mockResolvedValue({ value: 2 });
+    mockCacheManager.del.mockResolvedValue(true);
+
+    await service.removeRate(movie.tmdbId, userId);
+    expect(mockCacheManager.set).toHaveBeenCalledWith(`movie:${movie.tmdbId}`, movie)
+    expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrismaService.rating.delete).toHaveBeenCalledWith({
+      where: { userId_movieId: { userId, movieId: movie.tmdbId } }
+    })
+    expect(mockPrismaService.movie.update).toHaveBeenCalledWith({
+      where: { tmdbId: movie.tmdbId },
+      data: {
+        localVoteAverage: 0,
+        localVoteCount: 0,
+        totalVoteAverage: 10,
+        totalVoteCount: 1,
+      }
+    })
+    expect(mockCacheManager.del).toHaveBeenCalledWith(`movie:${movie.tmdbId}`);
+  })
 });

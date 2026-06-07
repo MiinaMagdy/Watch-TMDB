@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { MovieQueryDto } from './dto/MovieQuery.dto';
 import { MovieService } from './movie.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -34,5 +34,12 @@ export class MovieController {
     @HttpCode(HttpStatus.CREATED)
     async addRateToMovie(@Param('id', ParseIntPipe) movieId: number, @CurrentUser() user: UserTokenPayload, @Body() dto: RateMovieDto) {
         return this.movieService.rateMovie(movieId, user.id, dto.rating);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Delete(':id/rate')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    async removeRateFromMovie(@Param('id', ParseIntPipe) movieId: number, @CurrentUser() user: UserTokenPayload) {
+        return this.movieService.removeRate(movieId, user.id);
     }
 }
