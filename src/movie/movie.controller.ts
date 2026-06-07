@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Post, Query, UsePipes, ValidationPipe } from '@nestjs/common';
 import { MovieQueryDto } from './dto/MovieQuery.dto';
 import { MovieService } from './movie.service';
 
@@ -11,8 +11,8 @@ export class MovieController {
     }
 
     @Get(':id')
-    async findOne(@Param('id') id: string) {
-        return this.movieService.findOne(+id);
+    async findOne(@Param('id', ParseIntPipe) id: number) {
+        return this.movieService.findOne(id);
     }
 
     @Post('seed')

@@ -11,5 +11,6 @@ import { PrismaService } from '../prisma.service';
   })],
   providers: [MovieService, PrismaService],
   controllers: [MovieController],
+  exports: [MovieService]
 })
 export class MovieModule { }

@@ -25,9 +25,9 @@ export class MovieQueryDto {
     @IsOptional()
     genreIds?: string;
 
-    @IsOptional()
-    @IsInt()
-    @Min(1)
     @Max(10)
+    @Min(0)
+    @IsInt()
+    @Type(() => Number)
     minRating?: number
 }
