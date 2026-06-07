@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 
 jest.mock('bcrypt');
 
@@ -47,14 +48,11 @@ describe('AuthService', () => {
     it('should sign up and return JWT token', async () => {
         const email = 'test@example.com';
         const password = 'password';
-        const token = 'jwt_token';
 
-        mockUserService.findOne.mockResolvedValue(null);
         mockUserService.create.mockResolvedValue(undefined);
 
         const result = await service.register({ email, password });
 
-        expect(mockUserService.findOne).toHaveBeenCalledWith({ email });
         expect(mockUserService.create).toHaveBeenCalledWith({ email, password });
         expect(result).toBeUndefined();
     });
@@ -62,9 +60,11 @@ describe('AuthService', () => {
     it('should throw error if user already exists', async () => {
         const email = 'test@example.com';
         const password = 'password';
-        const user = { id: 1, email, passwordHash: 'hash' };
 
-        mockUserService.findOne.mockResolvedValue(user);
+        mockUserService.create.mockRejectedValue(new PrismaClientKnownRequestError('User already exists', {
+            code: 'P2002',
+            clientVersion: '7.0.1',
+        }));
 
         await expect(service.register({ email, password })).rejects.toThrow('User already exists');
     });

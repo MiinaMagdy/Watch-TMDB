@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { PrismaService } from '../prisma.service';
+import { MovieService } from '../movie/movie.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 const mockPrismaService = {
   user: {
@@ -10,12 +11,27 @@ const mockPrismaService = {
   },
 };
 
+const mockMovieService = {
+  findOne: jest.fn(),
+}
+
+const mockCacheManager = {
+  get: jest.fn(),
+  set: jest.fn(),
+  del: jest.fn(),
+}
+
 describe('UserService', () => {
   let service: UserService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UserService, { provide: PrismaService, useValue: mockPrismaService }],
+      providers: [
+        UserService,
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: MovieService, useValue: mockMovieService },
+        { provide: CACHE_MANAGER, useValue: mockCacheManager },
+      ],
     }).compile();
 
     service = module.get<UserService>(UserService);

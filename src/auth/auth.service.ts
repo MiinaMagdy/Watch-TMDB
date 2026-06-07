@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UserCredentialDto } from '../user/dto/UserCredential.dto';
 import { UserService } from '../user/user.service';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 
 @Injectable()
 export class AuthService {
@@ -17,11 +18,14 @@ export class AuthService {
     ) { }
 
     async register(dto: UserCredentialDto) {
-        const foundUser = await this.userService.findOne({ email: dto.email });
-        if (foundUser) {
-            throw new ConflictException("User already exists");
+        try {
+            await this.userService.create(dto);
+        } catch (error: unknown) {
+            if (error instanceof PrismaClientKnownRequestError && error.code === "P2002") {
+                throw new ConflictException("User already exists");
+            }
+            throw error;
         }
-        await this.userService.create(dto);
     }
 
     async login(dto: UserCredentialDto) {

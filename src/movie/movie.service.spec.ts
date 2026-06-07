@@ -11,7 +11,17 @@ const mockPrismaService = {
     findMany: jest.fn(),
     count: jest.fn(),
     findUnique: jest.fn(),
-  }
+    update: jest.fn(),
+  },
+  genre: {
+    upsert: jest.fn(),
+  },
+  rating: {
+    upsert: jest.fn(),
+    findUnique: jest.fn(),
+    delete: jest.fn(),
+  },
+  $transaction: jest.fn((callback) => callback(mockPrismaService)),
 };
 
 const mockHttpService = {
@@ -28,6 +38,7 @@ const mockCacheManager = {
   clear: jest.fn(),
   get: jest.fn(),
   set: jest.fn(),
+  del: jest.fn(),
 }
 
 describe('MovieService', () => {
@@ -69,7 +80,14 @@ describe('MovieService', () => {
 
   it('should seed the database from TMDB', async () => {
     const pages = 4;
+    const genres = [
+      { id: 1, name: "Action" },
+      { id: 2, name: "Comedy" },
+      { id: 3, name: "Drama" }
+    ]
     mockConfigService.get.mockReturnValue("some_key");
+    mockPrismaService.movie.findMany.mockResolvedValue([])
+    mockHttpService.axiosRef.get.mockResolvedValueOnce({ data: { genres } })
     mockHttpService.axiosRef.get.mockResolvedValue({
       data: {
         results: Array.from({ length: 20 }, (_, i) => ({
@@ -91,7 +109,8 @@ describe('MovieService', () => {
 
     const { seeded } = await service.seedMovies(pages);
     expect(seeded).toEqual(pages * 20);
-    expect(mockHttpService.axiosRef.get).toHaveBeenCalledTimes(pages);
+    expect(mockHttpService.axiosRef.get).toHaveBeenCalledTimes(1 + pages);
+    expect(mockPrismaService.genre.upsert).toHaveBeenCalledTimes(genres.length);
     expect(mockPrismaService.movie.upsert).toHaveBeenCalledTimes(pages * 20);
     expect(mockCacheManager.clear).toHaveBeenCalledTimes(1);
   })
@@ -158,8 +177,7 @@ describe('MovieService', () => {
       voteAverage: 8,
       voteCount: 1000,
       adult: false,
-      language: "en",
-      genreIds: [1, 2, 3]
+      language: "en"
     })))
 
     const { updated } = await service.deltaSync();
@@ -194,7 +212,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     }))
     mockCacheManager.get.mockResolvedValue(null);
     mockPrismaService.movie.findMany.mockResolvedValue(movies)
@@ -227,7 +244,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     }))
     mockCacheManager.get.mockResolvedValue({ movies, total: moviesInDB, page, limit });
     const { movies: foundMovies, total, page: foundPage, limit: foundLimit } = await service.findAll({ limit, page });
@@ -239,6 +255,38 @@ describe('MovieService', () => {
     expect(mockPrismaService.movie.count).toHaveBeenCalledTimes(0);
     expect(mockCacheManager.get).toHaveBeenCalledTimes(1);
     expect(mockCacheManager.set).toHaveBeenCalledTimes(0);
+  })
+
+  it('should find many movies with minimum rating', async () => {
+    const moviesInDB = 100;
+    const limit = 20;
+    const page = 1;
+    const minRating = 7;
+    const movies = Array.from({ length: limit }, (_, i) => ({
+      tmdbId: (page - 1) * limit + i + 1,
+      title: `Movie ${i + 1}`,
+      overview: `Overview ${i + 1}`,
+      releaseDate: `2022-01-01`,
+      posterPath: `/poster-${i + 1}.jpg`,
+      backdropPath: `/backdrop-${i + 1}.jpg`,
+      popularity: 100,
+      voteAverage: i % 10 + 1,
+      voteCount: 1000,
+      adult: false,
+      language: "en",
+    }))
+    mockCacheManager.get.mockResolvedValue(null);
+    mockPrismaService.movie.findMany.mockResolvedValue(movies.filter(m => m.voteAverage >= minRating))
+    mockPrismaService.movie.count.mockResolvedValue(moviesInDB)
+    const { limit: foundLimit, movies: foundMovies, page: foundPage, total } = await service.findAll({ limit, page, minRating });
+    expect(foundMovies.length).toEqual(8);
+    expect(total).toEqual(moviesInDB);
+    expect(foundPage).toEqual(page);
+    expect(foundLimit).toEqual(limit);
+    expect(mockPrismaService.movie.findMany).toHaveBeenCalledTimes(1);
+    expect(mockPrismaService.movie.findMany).toHaveBeenCalledWith({ where: { totalVoteAverage: { gte: minRating } }, skip: (page - 1) * limit, take: limit, orderBy: { popularity: 'desc' } });
+    expect(mockCacheManager.set).toHaveBeenCalledTimes(1);
+    expect(mockCacheManager.set).toHaveBeenCalledWith(`movies:${JSON.stringify({ limit, page, minRating })}`, { movies: foundMovies, total, page, limit });
   })
 
   it('should find one movie and cache miss', async () => {
@@ -256,7 +304,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     })
     const movie = await service.findOne(id);
     expect(movie).toEqual({
@@ -271,7 +318,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     })
     expect(mockPrismaService.movie.findUnique).toHaveBeenCalledTimes(1);
     expect(mockPrismaService.movie.findUnique).toHaveBeenCalledWith({ where: { tmdbId: id } });
@@ -288,7 +334,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     });
   })
 
@@ -306,7 +351,6 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     })
     const movie = await service.findOne(id);
     expect(movie).toEqual({
@@ -321,10 +365,136 @@ describe('MovieService', () => {
       voteCount: 1000,
       adult: false,
       language: "en",
-      genreIds: [1, 2, 3]
     })
     expect(mockPrismaService.movie.findUnique).toHaveBeenCalledTimes(0);
     expect(mockCacheManager.get).toHaveBeenCalledTimes(1);
     expect(mockCacheManager.set).toHaveBeenCalledTimes(0);
+  })
+
+  it('should add new non-existing rating and udpate average', async () => {
+    const movie = {
+      tmdbId: 1,
+      voteAverage: 10,
+      voteCount: 1,
+      localVoteAverage: 2,
+      localVoteCount: 1,
+      totalVoteAverage: 6,
+      totalVoteCount: 2,
+    };
+    const userId = 1;
+    const rating = 3;
+    mockCacheManager.get.mockResolvedValue(null);
+    mockPrismaService.movie.findUnique.mockResolvedValue(movie);
+    mockPrismaService.rating.findUnique.mockResolvedValue(null);
+    mockCacheManager.del.mockResolvedValue(true);
+
+    await service.rateMovie(movie.tmdbId, userId, rating);
+    expect(mockCacheManager.set).toHaveBeenCalledWith(`movie:${movie.tmdbId}`, movie)
+    expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrismaService.rating.upsert).toHaveBeenCalledWith({
+      where: { userId_movieId: { userId, movieId: movie.tmdbId } },
+      update: { value: rating },
+      create: { userId, movieId: movie.tmdbId, value: rating }
+    })
+    expect(mockPrismaService.movie.update).toHaveBeenCalledWith({
+      where: { tmdbId: movie.tmdbId },
+      data: {
+        localVoteAverage: 2.5,
+        localVoteCount: 2,
+        totalVoteAverage: 5,
+        totalVoteCount: 3,
+      }
+    })
+    expect(mockCacheManager.del).toHaveBeenCalledWith(`movie:${movie.tmdbId}`);
+  })
+
+  it('should update existing rating and recalculate average', async () => {
+    const movie = {
+      tmdbId: 1,
+      voteAverage: 10,
+      voteCount: 1,
+      localVoteAverage: 2,
+      localVoteCount: 1,
+      totalVoteAverage: 6,
+      totalVoteCount: 2,
+    };
+    const userId = 1;
+    const rating = 3;
+    mockCacheManager.get.mockResolvedValue(null);
+    mockPrismaService.movie.findUnique.mockResolvedValue(movie);
+    mockPrismaService.rating.findUnique.mockResolvedValue({ value: 2 });
+    mockCacheManager.del.mockResolvedValue(true);
+
+    await service.rateMovie(movie.tmdbId, userId, rating);
+    expect(mockCacheManager.set).toHaveBeenCalledWith(`movie:${movie.tmdbId}`, movie)
+    expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrismaService.rating.upsert).toHaveBeenCalledWith({
+      where: { userId_movieId: { userId, movieId: movie.tmdbId } },
+      update: { value: rating },
+      create: { userId, movieId: movie.tmdbId, value: rating }
+    })
+    expect(mockPrismaService.movie.update).toHaveBeenCalledWith({
+      where: { tmdbId: movie.tmdbId },
+      data: {
+        localVoteAverage: 3,
+        localVoteCount: 1,
+        totalVoteAverage: 6.5,
+        totalVoteCount: 2,
+      }
+    })
+    expect(mockCacheManager.del).toHaveBeenCalledWith(`movie:${movie.tmdbId}`);
+  })
+
+  it('should not remove rating and throw not found erorr', async () => {
+    const movie = {
+      tmdbId: 1,
+      voteAverage: 10,
+      voteCount: 1,
+      localVoteAverage: 2,
+      localVoteCount: 1,
+      totalVoteAverage: 6,
+      totalVoteCount: 2,
+    };
+    const userId = 1;
+    mockCacheManager.get.mockResolvedValue(null);
+    mockPrismaService.movie.findUnique.mockResolvedValue(movie);
+    mockPrismaService.rating.findUnique.mockResolvedValue(null);
+    await expect(service.removeRate(movie.tmdbId, userId)).rejects.toThrow('Rating not found');
+    expect(mockPrismaService.rating.delete).toHaveBeenCalledTimes(0);
+    expect(mockCacheManager.del).toHaveBeenCalledTimes(0);
+  })
+
+  it('should remove exisiting rating', async () => {
+    const movie = {
+      tmdbId: 1,
+      voteAverage: 10,
+      voteCount: 1,
+      localVoteAverage: 2,
+      localVoteCount: 1,
+      totalVoteAverage: 6,
+      totalVoteCount: 2,
+    };
+    const userId = 1;
+    mockCacheManager.get.mockResolvedValue(null);
+    mockPrismaService.movie.findUnique.mockResolvedValue(movie);
+    mockPrismaService.rating.findUnique.mockResolvedValue({ value: 2 });
+    mockCacheManager.del.mockResolvedValue(true);
+
+    await service.removeRate(movie.tmdbId, userId);
+    expect(mockCacheManager.set).toHaveBeenCalledWith(`movie:${movie.tmdbId}`, movie)
+    expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrismaService.rating.delete).toHaveBeenCalledWith({
+      where: { userId_movieId: { userId, movieId: movie.tmdbId } }
+    })
+    expect(mockPrismaService.movie.update).toHaveBeenCalledWith({
+      where: { tmdbId: movie.tmdbId },
+      data: {
+        localVoteAverage: 0,
+        localVoteCount: 0,
+        totalVoteAverage: 10,
+        totalVoteCount: 1,
+      }
+    })
+    expect(mockCacheManager.del).toHaveBeenCalledWith(`movie:${movie.tmdbId}`);
   })
 });
