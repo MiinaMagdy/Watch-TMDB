@@ -3,19 +3,28 @@ name: Run Tests
 on:
   pull_request:
     branches: [ master ]
+
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: "mysql://user:password@localhost:3306/test"
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '22'
+
       - name: Install Dependencies
         run: npm ci
+
       - name: Generate Prisma Client
         run: npx prisma generate
+
       - name: Run Tests
         run: npm test
