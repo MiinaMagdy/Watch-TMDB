@@ -2,7 +2,7 @@ import { ConflictException, Inject, Injectable, NotFoundException } from '@nestj
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcrypt';
 import { UserCredentialDto } from './dto/UserCredential.dto';
-import { UserWhereInput } from '../generated/prisma/models';
+import { Prisma } from '@prisma/client';
 import { UserSearchDto } from './dto/UserSearch.dto';
 import { MovieService } from '../movie/movie.service';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -26,7 +26,7 @@ export class UserService {
   }
 
   async findOne(dto: UserSearchDto) {
-    const where: UserWhereInput = {};
+    const where: Prisma.UserWhereInput = {};
     if (dto.id) {
       where.id = dto.id;
     }

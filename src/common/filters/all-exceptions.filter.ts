@@ -1,7 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from "@nestjs/common";
 import { isAxiosError } from "axios";
 import { Request, Response } from "express";
-import { Prisma } from "../../generated/prisma/client";
+import { Prisma } from "@prisma/client";
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -57,6 +57,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 case 'P2025':
                     return { status: HttpStatus.NOT_FOUND, message: 'Resource not found' };
                 default:
+                    console.error('Unhandled Prisma Error:', exception);
                     return { status: HttpStatus.BAD_REQUEST, message: 'Database request error' };
             }
         }
