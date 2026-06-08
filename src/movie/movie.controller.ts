@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { MovieQueryDto } from './dto/MovieQuery.dto';
 import { MovieService } from './movie.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -6,6 +7,7 @@ import { CurrentUser } from '../auth/decorators/user.decorator';
 import { UserTokenPayload } from '../auth/dto/UserTokenPayload.dto';
 import { RateMovieDto } from './dto/RateMovie.dto';
 
+@ApiTags('Movies')
 @Controller('movies')
 export class MovieController {
     constructor(private movieService: MovieService) { }
