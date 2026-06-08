@@ -6,10 +6,9 @@ import { PrismaService } from '../prisma.service';
 import { TmdbMovie } from './dto/TmdbMovie.dto';
 import { TmdbResource } from './dto/TmdbResource.dto';
 import { MovieQueryDto } from './dto/MovieQuery.dto';
-import { MovieWhereInput } from 'src/generated/prisma/models';
 import { Cron } from '@nestjs/schedule';
 import { Genre } from './dto/Genre.dto';
-import { Movie } from '../generated/prisma/client';
+import { Prisma, Movie } from '@prisma/client';
 
 @Injectable()
 export class MovieService {
@@ -163,7 +162,7 @@ export class MovieService {
         if (cached) return cached as { movies: Movie[], total: number, page: number, limit: number };
 
         const { page = 1, limit = 20, search = '', sortBy = 'popularity', genreIds, minRating } = query;
-        const where: MovieWhereInput = {};
+        const where: Prisma.MovieWhereInput = {};
         if (search) {
             where.OR = [
                 { title: { contains: search } },
