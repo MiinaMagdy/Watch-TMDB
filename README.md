@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/MiinaMagdy/Watch-TMDB/actions/workflows/test.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/MiinaMagdy/Watch-TMDB/test.yml?branch=master&label=Tests&style=flat-square&logo=github" alt="Tests" />
+    <img src="https://github.com/MiinaMagdy/Watch-TMDB/actions/workflows/test.yml/badge.svg" alt="Tests" />
   </a>
   <a href="#">
     <!-- Currently hardcoded to your recent coverage run. You can automate this with Coveralls or Codecov! -->
