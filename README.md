@@ -1,98 +1,121 @@
+# 🎬 Watch-TMDB
+
 <p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+  <img src="https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS" />
+  <img src="https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white" alt="Prisma" />
+  <img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
 </p>
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+<p align="center">
+  <a href="https://github.com/MiinaMagdy/Watch-TMDB/actions/workflows/test.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/MiinaMagdy/Watch-TMDB/test.yml?branch=master&label=Tests&style=flat-square&logo=github" alt="Tests" />
+  </a>
+  <a href="#">
+    <!-- Currently hardcoded to your recent coverage run. You can automate this with Coveralls or Codecov! -->
+    <img src="https://img.shields.io/badge/Coverage-85%25-green?style=flat-square&logo=jest" alt="Coverage" />
+  </a>
 </p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
-## Description
+A powerful backend service built with **NestJS** to manage movies, genres, ratings, and watchlists. The application synchronizes with the **TMDB API**, uses **Prisma ORM** with **MySQL**, and implements caching for blazing-fast movie retrievals.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## ✨ Features
+- **🔐 Authentication**: Secure JWT-based user authentication and authorization using Passport.
+- **🎬 Movie Management**: Fetch, browse, and search movies integrated directly with TMDB.
+- **⭐ Ratings & Watchlists**: Users can rate movies and manage their personal watchlists seamlessly.
+- **⚡ Caching**: Optimized endpoints with `@nestjs/cache-manager` to reduce database and third-party API loads.
+- **🐳 Containerized & Cross-Platform**: Fully dockerized using a multi-stage `Dockerfile` and Docker Compose. Prisma models are explicitly mapped to lowercase database tables (`@@map`) to guarantee seamless cross-platform deployment between Windows and Linux environments.
+- **🕰️ Scheduled Tasks**: Automated cron jobs to sync TMDB deltas overnight.
 
-```bash
-$ npm install
+## 📁 Project Structure
+
+```text
+src/
+├── auth/          # JWT authentication, guards, and strategies
+├── common/        # Global exception filters and decorators
+├── generated/     # Generated Prisma client output
+├── movie/         # Movie fetching, TMDB integration, ratings, and caching
+├── user/          # User management and watchlists
+├── app.module.ts  # Root module
+└── main.ts        # Application entry point
 ```
 
-## Compile and run the project
+## 🛠️ Prerequisites
 
-```bash
-# development
-$ npm run start
+Before you begin, ensure you have the following installed:
+- [Node.js](https://nodejs.org/en/) (v22+)
+- [Docker](https://www.docker.com/) & Docker Compose
+- TMDB API Key (Create an account on [TMDB](https://www.themoviedb.org/) to get an API Key and Access Token)
 
-# watch mode
-$ npm run start:dev
+## 🚀 Setup Process
 
-# production mode
-$ npm run start:prod
+### 1. Environment Configuration
+
+If you haven't already, configure your production `.env.prod` file in the root of the project:
+
+```env
+# MySQL Database Configuration
+MYSQL_ROOT_PASSWORD=root
+MYSQL_DATABASE=watch_tmdb
+MYSQL_USER=dbuser
+MYSQL_PASSWORD=root
+
+# App Database Connection Parameters
+DATABASE_HOST=mysql_db
+DATABASE_PORT=3306
+DATABASE_NAME=watch_tmdb
+DATABASE_USER=dbuser
+DATABASE_PASSWORD=root
+
+# Prisma URL
+DATABASE_URL=mysql://dbuser:root@mysql_db:3306/watch_tmdb
+
+# Application Secrets
+JWT_SECRET=your_super_secret_key
+JWT_EXPIRATION_TIME=1d
+
+# TMDB Configuration
+TMDB_API_KEY=your_tmdb_api_key
+TMDB_READ_ACCESS_TOKEN=your_tmdb_access_token
+TMDB_BASE_URL=https://api.themoviedb.org/3
 ```
 
-## Run tests
+### 2. Run with Docker Compose
 
+To start both the MySQL database and the NestJS application in the background:
 ```bash
-# unit tests
-$ npm run test
+docker compose up --build -d
+```
+*Note: The application will automatically run the Prisma migrations before starting the server to ensure your database schema is up-to-date.*
 
-# e2e tests
-$ npm run test:e2e
+The API will now be available at `http://localhost:8080/api`.
 
-# test coverage
-$ npm run test:cov
+### 3. Seeding the Database
+
+Once the application is running, you can seed your local database with initial movies and genres directly from TMDB:
+```bash
+curl -X POST http://localhost:8080/api/movies/seed?pages=5
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+### 4. Database Migrations
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+The database migrations have been strategically squashed into a single unified `init` migration to maintain a clean history. When you run `docker compose up`, the container automatically executes `npx prisma migrate deploy` to safely apply the schema to the MySQL database before booting the application.
+
+---
+
+## 🧪 Testing
+
+The project uses **Jest** for comprehensive unit testing across services and controllers.
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Run unit tests
+npm run test
+
+# Run tests with coverage report
+npm run test:cov
 ```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
